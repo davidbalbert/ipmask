@@ -132,7 +132,13 @@ func main() {
 			log.Fatal(err)
 		}
 	} else if strings.Contains(input, "/") {
-		fmt.Println("subnets not implemented yet")
+		_, ipnet, err := net.ParseCIDR(input)
+
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		mask = ipnet.Mask
 	} else {
 		var err error
 		mask, err = parseMask(input)
