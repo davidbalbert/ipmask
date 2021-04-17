@@ -105,7 +105,7 @@ func inverse(mask net.IPMask) string {
 func usable(mask net.IPMask) uint32 {
 	ones, _ := mask.Size()
 
-	return uint32(math.Pow(2, 32-float64(ones)) - 2)
+	return uint32(math.Max(math.Pow(2, 32-float64(ones))-2, 0))
 }
 
 func commas(n uint32) string {
