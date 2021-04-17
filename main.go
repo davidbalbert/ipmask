@@ -18,6 +18,7 @@ import (
 
 var prefixLength = regexp.MustCompile(`/(\d+)`)
 var dottedQuad = regexp.MustCompile(`(\d{1,3}).(\d{1,3}).(\d{1,3}).(\d{1,3})`)
+var hex = regexp.MustCompile(`0x([a-fA-F0-9]{8})`)
 
 func parsePrefixLength(input string) (net.IPMask, error) {
 	match := prefixLength.FindStringSubmatch(input)
@@ -33,6 +34,20 @@ func parsePrefixLength(input string) (net.IPMask, error) {
 	}
 
 	return net.CIDRMask(n, 32), nil
+}
+
+func interpretMask(n uint32) (net.IPMask, error) {
+	ones := bits.OnesCount32(n)
+
+	if n>>(32-ones) == uint32(math.Pow(2, float64(ones))-1) {
+		// netmask
+		return net.CIDRMask(ones, 32), nil
+	} else if n == uint32(math.Pow(2, float64(ones))-1) {
+		// inverse mask
+		return net.CIDRMask(32-ones, 32), nil
+	} else {
+		return nil, fmt.Errorf("invalid netmask or inverse mask")
+	}
 }
 
 func parseMask(input string) (net.IPMask, error) {
@@ -67,17 +82,33 @@ func parseMask(input string) (net.IPMask, error) {
 	}
 
 	n := uint32(n1<<24 | n2<<16 | n3<<8 | n4)
-	ones := bits.OnesCount32(n)
 
-	if n>>(32-ones) == uint32(math.Pow(2, float64(ones))-1) {
-		// netmask
-		return net.CIDRMask(ones, 32), nil
-	} else if n == uint32(math.Pow(2, float64(ones))-1) {
-		// inverse mask
-		return net.CIDRMask(32-ones, 32), nil
-	} else {
+	mask, err := interpretMask(n)
+	if err != nil {
 		return nil, fmt.Errorf("%s is not a valid netmask or inverse mask", input)
 	}
+
+	return mask, nil
+}
+
+func parseHex(input string) (net.IPMask, error) {
+	match := hex.FindStringSubmatch(input)
+
+	if len(match) == 0 {
+		return nil, fmt.Errorf("%s is not a valid netmask or inverse mask (hex values need 8 chars)", input)
+	}
+
+	n, err := strconv.ParseUint(match[1], 16, 32)
+	if err != nil {
+		return nil, err
+	}
+
+	mask, err := interpretMask(uint32(n))
+	if err != nil {
+		return nil, fmt.Errorf("%s is not a valid netmask or inverse mask", input)
+	}
+
+	return mask, nil
 }
 
 func prefix(mask net.IPMask) string {
@@ -139,9 +170,23 @@ func main() {
 		}
 
 		mask = ipnet.Mask
-	} else {
+	} else if strings.Contains(input, ".") {
 		var err error
 		mask, err = parseMask(input)
+
+		if err != nil {
+			log.Fatal(err)
+		}
+	} else if strings.HasPrefix(input, "0x") {
+		var err error
+		mask, err = parseHex(input)
+
+		if err != nil {
+			log.Fatal(err)
+		}
+	} else {
+		var err error
+		mask, err = parsePrefixLength(fmt.Sprintf("/%s", input))
 
 		if err != nil {
 			log.Fatal(err)
