@@ -222,14 +222,14 @@ func main() {
 	fmt.Println("------------------------------------------------")
 
 	if ip != nil {
-		fmt.Printf("IP Entered = ...............: %s\n", ip.String())
+		fmt.Printf("IP Entered = ..................: %s\n", ip.String())
 	}
-	fmt.Printf("CIDR = .....................: %s\n", prefix(mask))
-	fmt.Printf("Netmask = ..................: %s\n", netmask(mask))
-	fmt.Printf("Netmask (hex) = ............: 0x%s\n", mask.String())
-	fmt.Printf("Wildcard Bits = ............: %s\n", inverse(mask))
+	fmt.Printf("CIDR = ........................: %s\n", prefix(mask))
+	fmt.Printf("Netmask = .....................: %s\n", netmask(mask))
+	fmt.Printf("Netmask (hex) = ...............: 0x%s\n", mask.String())
+	fmt.Printf("Wildcard Bits = ...............: %s\n", inverse(mask))
 	if ip == nil {
-		fmt.Printf("Usable IP Addresses = ......: %s\n", commas(usable(mask)))
+		fmt.Printf("Usable IP Addresses = .........: %s\n", commas(usable(mask)))
 	}
 
 	if ipnet != nil {
