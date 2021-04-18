@@ -1,4 +1,4 @@
-module github.com/davidbalbert/ipmask
+module github.com/davidbalbert/wmask
 
 go 1.16
 
