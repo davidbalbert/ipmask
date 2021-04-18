@@ -233,12 +233,26 @@ func main() {
 	}
 
 	if ipnet != nil {
+		n := ipToUint(ipnet.IP)
+		broadcast := n + total(ipnet.Mask) - 1
+		first := n + 1
+		last := broadcast - 1
+
+		var firstAddr, lastAddr string
+		if broadcast-n > 1 {
+			firstAddr = uintToIP(first).String()
+			lastAddr = uintToIP(last).String()
+		} else {
+			firstAddr = "<none>"
+			lastAddr = "<none>"
+		}
+
 		fmt.Println("------------------------------------------------")
 		fmt.Printf("Network Address = .............: %s\n", ipnet.IP.String())
-		fmt.Printf("Broadcast Address = ...........: %s\n", uintToIP(ipToUint(ipnet.IP)+total(ipnet.Mask)-1))
+		fmt.Printf("Broadcast Address = ...........: %s\n", uintToIP(broadcast))
 		fmt.Printf("Usable IP Addresses = .........: %s\n", commas(usable(mask)))
-		fmt.Printf("First Usable IP Address = .....: %s\n", uintToIP(ipToUint(ipnet.IP)+1))
-		fmt.Printf("Last Usable IP Address = ......: %s\n", uintToIP(ipToUint(ipnet.IP)+total(ipnet.Mask)-2))
+		fmt.Printf("First Usable IP Address = .....: %s\n", firstAddr)
+		fmt.Printf("Last Usable IP Address = ......: %s\n", lastAddr)
 	}
 
 	fmt.Println()
