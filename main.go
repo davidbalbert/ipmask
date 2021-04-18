@@ -133,6 +133,12 @@ func inverse(mask net.IPMask) string {
 	return fmt.Sprintf("%d.%d.%d.%d", (n>>24)&0xff, (n>>16)&0xff, (n>>8)&0xff, n&0xff)
 }
 
+func total(mask net.IPMask) uint32 {
+	ones, _ := mask.Size()
+
+	return uint32(math.Pow(2, 32-float64(ones)))
+}
+
 func usable(mask net.IPMask) uint32 {
 	ones, _ := mask.Size()
 
@@ -145,6 +151,20 @@ func commas(n uint32) string {
 	return p.Sprintf("%d", n)
 }
 
+func ipToUint(ip net.IP) uint32 {
+	bytes := []byte(ip.To4())
+
+	if bytes == nil {
+		return 0
+	}
+
+	return uint32(bytes[0])<<24 | uint32(bytes[1])<<16 | uint32(bytes[2])<<8 | uint32(bytes[3])
+}
+
+func uintToIP(n uint32) net.IP {
+	return net.IPv4(byte(n>>24), byte(n>>16), byte(n>>8), byte(n))
+}
+
 func main() {
 	if len(os.Args) != 2 {
 		fmt.Fprintf(os.Stderr, "usage: %s netmask-or-subnet\n", os.Args[0])
@@ -154,6 +174,8 @@ func main() {
 	input := os.Args[1]
 
 	var mask net.IPMask
+	var ip net.IP
+	var ipnet *net.IPNet
 
 	if string(input[0]) == "/" {
 		var err error
@@ -163,7 +185,8 @@ func main() {
 			log.Fatal(err)
 		}
 	} else if strings.Contains(input, "/") {
-		_, ipnet, err := net.ParseCIDR(input)
+		var err error
+		ip, ipnet, err = net.ParseCIDR(input)
 
 		if err != nil {
 			log.Fatal(err)
@@ -193,11 +216,30 @@ func main() {
 		}
 	}
 
-	if mask != nil {
-		fmt.Printf("CIDR = .....................: %s\n", prefix(mask))
-		fmt.Printf("Netmask = ..................: %s\n", netmask(mask))
-		fmt.Printf("Netmask (hex) = ............: 0x%s\n", mask.String())
-		fmt.Printf("Wildcard Bits = ............: %s\n", inverse(mask))
+	fmt.Println()
+	fmt.Println("------------------------------------------------")
+	fmt.Println("           TCP/IP NETWORK INFORMATION           ")
+	fmt.Println("------------------------------------------------")
+
+	if ip != nil {
+		fmt.Printf("IP Entered = ...............: %s\n", ip.String())
+	}
+	fmt.Printf("CIDR = .....................: %s\n", prefix(mask))
+	fmt.Printf("Netmask = ..................: %s\n", netmask(mask))
+	fmt.Printf("Netmask (hex) = ............: 0x%s\n", mask.String())
+	fmt.Printf("Wildcard Bits = ............: %s\n", inverse(mask))
+	if ip == nil {
 		fmt.Printf("Usable IP Addresses = ......: %s\n", commas(usable(mask)))
 	}
+
+	if ipnet != nil {
+		fmt.Println("------------------------------------------------")
+		fmt.Printf("Network Address = .............: %s\n", ipnet.IP.String())
+		fmt.Printf("Broadcast Address = ...........: %s\n", uintToIP(ipToUint(ipnet.IP)+total(ipnet.Mask)-1))
+		fmt.Printf("Usable IP Addresses = .........: %s\n", commas(usable(mask)))
+		fmt.Printf("First Usable IP Address = .....: %s\n", uintToIP(ipToUint(ipnet.IP)+1))
+		fmt.Printf("Last Usable IP Address = ......: %s\n", uintToIP(ipToUint(ipnet.IP)+total(ipnet.Mask)-2))
+	}
+
+	fmt.Println()
 }
