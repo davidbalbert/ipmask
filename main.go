@@ -16,9 +16,11 @@ import (
 	"golang.org/x/text/message"
 )
 
-var prefixLength = regexp.MustCompile(`/(\d+)`)
-var dottedQuad = regexp.MustCompile(`(\d{1,3}).(\d{1,3}).(\d{1,3}).(\d{1,3})`)
-var hex = regexp.MustCompile(`0x([a-fA-F0-9]{8})`)
+var (
+	prefixLength = regexp.MustCompile(`/(\d+)`)
+	dottedQuad   = regexp.MustCompile(`(\d{1,3}).(\d{1,3}).(\d{1,3}).(\d{1,3})`)
+	hex          = regexp.MustCompile(`0x([a-fA-F0-9]{8})`)
+)
 
 func parsePrefixLength(input string) (net.IPMask, error) {
 	match := prefixLength.FindStringSubmatch(input)
@@ -177,14 +179,15 @@ func main() {
 	var ip net.IP
 	var ipnet *net.IPNet
 
-	if string(input[0]) == "/" {
+	switch {
+	case string(input[0]) == "/":
 		var err error
 		mask, err = parsePrefixLength(input)
 
 		if err != nil {
 			log.Fatal(err)
 		}
-	} else if strings.Contains(input, "/") {
+	case strings.Contains(input, "/"):
 		var err error
 		ip, ipnet, err = net.ParseCIDR(input)
 
@@ -193,21 +196,21 @@ func main() {
 		}
 
 		mask = ipnet.Mask
-	} else if strings.Contains(input, ".") {
+	case strings.Contains(input, "."):
 		var err error
 		mask, err = parseMask(input)
 
 		if err != nil {
 			log.Fatal(err)
 		}
-	} else if strings.HasPrefix(input, "0x") {
+	case strings.HasPrefix(input, "0x"):
 		var err error
 		mask, err = parseHex(input)
 
 		if err != nil {
 			log.Fatal(err)
 		}
-	} else {
+	default:
 		var err error
 		mask, err = parsePrefixLength(fmt.Sprintf("/%s", input))
 
