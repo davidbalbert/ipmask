@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"log"
 	"math/bits"
@@ -13,6 +14,8 @@ import (
 	"golang.org/x/text/language"
 	"golang.org/x/text/message"
 )
+
+var ipv6 = false
 
 var dottedQuad = regexp.MustCompile(`(\d{1,3}).(\d{1,3}).(\d{1,3}).(\d{1,3})`)
 
@@ -165,11 +168,14 @@ func uintToIP(n uint32) net.IP {
 func main() {
 	log.SetFlags(0)
 
-	if len(os.Args) != 2 {
+	flag.BoolVar(&ipv6, "6", false, "Force IPv6")
+	flag.Parse()
+
+	if flag.NArg() != 1 {
 		log.Fatalf("usage: %s netmask-or-subnet\n", os.Args[0])
 	}
 
-	input := os.Args[1]
+	input := flag.Arg(0)
 
 	var mask net.IPMask
 	var ip net.IP
