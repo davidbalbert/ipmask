@@ -166,8 +166,7 @@ func main() {
 	log.SetFlags(0)
 
 	if len(os.Args) != 2 {
-		fmt.Fprintf(os.Stderr, "usage: %s netmask-or-subnet\n", os.Args[0])
-		os.Exit(1)
+		log.Fatalf("usage: %s netmask-or-subnet\n", os.Args[0])
 	}
 
 	input := os.Args[1]
