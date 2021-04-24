@@ -47,6 +47,15 @@ func interpretMask(n uint32) (net.IPMask, error) {
 	}
 }
 
+func getNum(s string) uint64 {
+	n, err := strconv.ParseUint(s, 10, 32)
+	if err != nil {
+		panic(err)
+	}
+
+	return n
+}
+
 func parseMask(input string) (net.IPMask, error) {
 	match := dottedQuad.FindStringSubmatch(input)
 
@@ -54,25 +63,10 @@ func parseMask(input string) (net.IPMask, error) {
 		return nil, fmt.Errorf("%s is not a valid netmask or inverse mask", input)
 	}
 
-	n1, err := strconv.ParseUint(match[1], 10, 32)
-	if err != nil {
-		return nil, err
-	}
-
-	n2, err := strconv.ParseUint(match[2], 10, 32)
-	if err != nil {
-		return nil, err
-	}
-
-	n3, err := strconv.ParseUint(match[3], 10, 32)
-	if err != nil {
-		return nil, err
-	}
-
-	n4, err := strconv.ParseUint(match[4], 10, 32)
-	if err != nil {
-		return nil, err
-	}
+	n1 := getNum(match[1])
+	n2 := getNum(match[2])
+	n3 := getNum(match[3])
+	n4 := getNum(match[4])
 
 	if n1 > 255 || n2 > 255 || n3 > 255 || n4 > 255 {
 		return nil, fmt.Errorf("%s is not a valid netmask or inverse mask", input)
