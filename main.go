@@ -222,7 +222,12 @@ func main() {
 
 	fmt.Println()
 	fmt.Println("------------------------------------------------")
-	fmt.Println("           TCP/IP NETWORK INFORMATION           ")
+	if ipnet != nil {
+		fmt.Println("           TCP/IP NETWORK INFORMATION           ")
+	} else {
+		fmt.Println("         TCP/IP SUBNET MASK EQUIVALENTS         ")
+
+	}
 	fmt.Println("------------------------------------------------")
 
 	if ip != nil {
