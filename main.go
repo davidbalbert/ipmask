@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"log"
-	"math"
 	"math/bits"
 	"net"
 	"os"
@@ -37,10 +36,10 @@ func parsePrefixLength(input string) (net.IPMask, error) {
 func interpretMask(n uint32) (net.IPMask, error) {
 	ones := bits.OnesCount32(n)
 
-	if n>>(32-ones) == uint32(math.Pow(2, float64(ones))-1) {
+	if n>>(32-ones) == (1<<ones)-1 {
 		// netmask
 		return net.CIDRMask(ones, 32), nil
-	} else if n == uint32(math.Pow(2, float64(ones))-1) {
+	} else if n == (1<<ones)-1 {
 		// inverse mask
 		return net.CIDRMask(32-ones, 32), nil
 	} else {
@@ -116,7 +115,7 @@ func prefix(mask net.IPMask) string {
 func netmask(mask net.IPMask) string {
 	ones, _ := mask.Size()
 
-	n := uint32(math.Pow(2, float64(ones))-1) << (32 - ones)
+	n := ((1 << ones) - 1) << (32 - ones)
 
 	return fmt.Sprintf("%d.%d.%d.%d", (n>>24)&0xff, (n>>16)&0xff, (n>>8)&0xff, n&0xff)
 }
@@ -124,21 +123,29 @@ func netmask(mask net.IPMask) string {
 func inverse(mask net.IPMask) string {
 	ones, _ := mask.Size()
 
-	n := uint32(math.Pow(2, 32-float64(ones)) - 1)
+	n := (1 << (32 - ones)) - 1
 
 	return fmt.Sprintf("%d.%d.%d.%d", (n>>24)&0xff, (n>>16)&0xff, (n>>8)&0xff, n&0xff)
+}
+
+func maxint(a, b int) int {
+	if a > b {
+		return a
+	} else {
+		return b
+	}
 }
 
 func total(mask net.IPMask) uint32 {
 	ones, _ := mask.Size()
 
-	return uint32(math.Pow(2, 32-float64(ones)))
+	return (1 << (32 - ones))
 }
 
 func usable(mask net.IPMask) uint32 {
 	ones, _ := mask.Size()
 
-	return uint32(math.Max(math.Pow(2, 32-float64(ones))-2, 0))
+	return uint32(maxint((1<<(32-ones))-2, 0))
 }
 
 func commas(n uint32) string {
