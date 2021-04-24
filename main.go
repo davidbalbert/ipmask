@@ -1,7 +1,6 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 	"log"
 	"math"
@@ -16,23 +15,20 @@ import (
 	"golang.org/x/text/message"
 )
 
-var (
-	prefixLength = regexp.MustCompile(`/(\d+)`)
-	dottedQuad   = regexp.MustCompile(`(\d{1,3}).(\d{1,3}).(\d{1,3}).(\d{1,3})`)
-	hex          = regexp.MustCompile(`0x([a-fA-F0-9]{8})`)
-)
+var dottedQuad = regexp.MustCompile(`(\d{1,3}).(\d{1,3}).(\d{1,3}).(\d{1,3})`)
 
 func parsePrefixLength(input string) (net.IPMask, error) {
-	match := prefixLength.FindStringSubmatch(input)
-
-	if len(match) == 0 {
-		return nil, errors.New("invalid prefix length")
+	if len(input) < 1 {
+		return nil, fmt.Errorf("invalid prefix length")
 	}
 
-	n, err := strconv.Atoi(match[1])
-
+	n, err := strconv.Atoi(input[1:])
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("invalid prefix length")
+	}
+
+	if n < 0 || n > 32 {
+		return nil, fmt.Errorf("invalid prefix length (must be between 0 and 32)")
 	}
 
 	return net.CIDRMask(n, 32), nil
@@ -94,15 +90,13 @@ func parseMask(input string) (net.IPMask, error) {
 }
 
 func parseHex(input string) (net.IPMask, error) {
-	match := hex.FindStringSubmatch(input)
-
-	if len(match) == 0 {
+	if len(input) != 10 {
 		return nil, fmt.Errorf("%s is not a valid netmask or inverse mask (hex values need 8 chars)", input)
 	}
 
-	n, err := strconv.ParseUint(match[1], 16, 32)
+	n, err := strconv.ParseUint(input[2:], 16, 32)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("%s is not a valid netmask or inverse mask: %w", input, err)
 	}
 
 	mask, err := interpretMask(uint32(n))
