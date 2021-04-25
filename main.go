@@ -4,15 +4,13 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"math/big"
 	"math/bits"
 	"net"
 	"os"
 	"regexp"
 	"strconv"
 	"strings"
-
-	"golang.org/x/text/language"
-	"golang.org/x/text/message"
 )
 
 var ipv6 = false
@@ -29,11 +27,19 @@ func parsePrefixLength(input string) (net.IPMask, error) {
 		return nil, fmt.Errorf("invalid prefix length")
 	}
 
-	if n < 0 || n > 32 {
-		return nil, fmt.Errorf("invalid prefix length (must be between 0 and 32)")
+	if n < 0 || n > 128 {
+		return nil, fmt.Errorf("invalid prefix length (must be between 0 and 128)")
 	}
 
-	return net.CIDRMask(n, 32), nil
+	if n > 32 {
+		ipv6 = true
+	}
+
+	if ipv6 {
+		return net.CIDRMask(n, 128), nil
+	} else {
+		return net.CIDRMask(n, 32), nil
+	}
 }
 
 func interpretMask(n uint32) (net.IPMask, error) {
@@ -125,44 +131,102 @@ func inverse(mask net.IPMask) string {
 	return fmt.Sprintf("%d.%d.%d.%d", (n>>24)&0xff, (n>>16)&0xff, (n>>8)&0xff, n&0xff)
 }
 
-func maxint(a, b int) int {
-	if a > b {
-		return a
+func b(n int64) *big.Int {
+	return big.NewInt(n)
+}
+
+func max(x, y *big.Int) *big.Int {
+	if x.Cmp(y) == -1 {
+		return y
 	} else {
-		return b
+		return x
 	}
 }
 
-func total(mask net.IPMask) uint32 {
-	ones, _ := mask.Size()
+func total(mask net.IPMask) *big.Int {
+	ones, bits := mask.Size()
 
-	return (1 << (32 - ones))
+	return new(big.Int).Exp(b(2), b(int64(bits-ones)), nil)
 }
 
-func usable(mask net.IPMask) uint32 {
-	ones, _ := mask.Size()
+func usable(mask net.IPMask) *big.Int {
+	n := total(mask)
 
-	return uint32(maxint((1<<(32-ones))-2, 0))
-}
-
-func commas(n uint32) string {
-	p := message.NewPrinter(language.English)
-
-	return p.Sprintf("%d", n)
-}
-
-func ipToUint(ip net.IP) uint32 {
-	bytes := []byte(ip.To4())
-
-	if bytes == nil {
-		return 0
+	if ipv6 {
+		return n
 	}
 
-	return uint32(bytes[0])<<24 | uint32(bytes[1])<<16 | uint32(bytes[2])<<8 | uint32(bytes[3])
+	n.Sub(n, b(2))
+	return max(n, b(0))
 }
 
-func uintToIP(n uint32) net.IP {
-	return net.IPv4(byte(n>>24), byte(n>>16), byte(n>>8), byte(n))
+func reverse(s string) string {
+	runes := []rune(s)
+
+	for i, j := 0, len(runes)-1; i < j; i, j = i+1, j-1 {
+		runes[i], runes[j] = runes[j], runes[i]
+	}
+
+	return string(runes)
+}
+
+func chunk(s string, n int) []string {
+	var res []string
+
+	for i := 0; i < len(s); i = i + n {
+		var end int
+		if i+n > len(s) {
+			end = len(s)
+		} else {
+			end = i + n
+		}
+
+		res = append(res, s[i:end])
+	}
+
+	return res
+}
+
+func commas(n *big.Int) string {
+	s := n.String()
+
+	chunked := chunk(reverse(s), 3)
+
+	return reverse(strings.Join(chunked, ","))
+}
+
+func ipToUint(ip net.IP) *big.Int {
+	var bytes []byte
+
+	ip4 := ip.To4()
+
+	if ip4 != nil {
+		bytes = []byte(ip4)
+	} else {
+		bytes = []byte(ip)
+	}
+
+	return new(big.Int).SetBytes(bytes)
+}
+
+func uintToIP(n *big.Int) net.IP {
+	var bytes []byte
+
+	// TODO: this is asymetric from ipToUint. Here, we check whether we're
+	// in IPv6 mode. There we check if the address is a v4 addres. Is this a
+	// problem?
+	//
+	// We could do something like assume ipv4 in the case where n is between
+	// 1.0.0.0 and 254.255.255.255 (0.0.0.0/8 and 255.0.0.0/8 are invalid v6
+	// addresses and 0.0.0.1 overlaps with ::1). I'm not sure if this is a
+	// good idea.
+	if ipv6 {
+		bytes = make([]byte, 16)
+	} else {
+		bytes = make([]byte, 4)
+	}
+
+	return net.IP(n.FillBytes(bytes))
 }
 
 func main() {
@@ -172,7 +236,7 @@ func main() {
 	flag.Parse()
 
 	if flag.NArg() != 1 {
-		log.Fatalf("usage: %s netmask-or-subnet\n", os.Args[0])
+		log.Fatalf("usage: %s [-6] netmask-or-subnet\n", os.Args[0])
 	}
 
 	input := flag.Arg(0)
@@ -195,6 +259,10 @@ func main() {
 
 		if err != nil {
 			log.Fatal(err)
+		}
+
+		if ip.To4() == nil {
+			ipv6 = true
 		}
 
 		mask = ipnet.Mask
@@ -234,22 +302,31 @@ func main() {
 	if ip != nil {
 		fmt.Printf("IP Entered = ..................: %s\n", ip.String())
 	}
-	fmt.Printf("CIDR = ........................: %s\n", prefix(mask))
-	fmt.Printf("Netmask = .....................: %s\n", netmask(mask))
-	fmt.Printf("Netmask (hex) = ...............: 0x%s\n", mask.String())
-	fmt.Printf("Wildcard Bits = ...............: %s\n", inverse(mask))
+
+	if ipv6 {
+		fmt.Printf("Prefix = ......................: %s\n", prefix(mask))
+	} else {
+		fmt.Printf("CIDR = ........................: %s\n", prefix(mask))
+		fmt.Printf("Netmask = .....................: %s\n", netmask(mask))
+		fmt.Printf("Netmask (hex) = ...............: 0x%s\n", mask.String())
+		fmt.Printf("Wildcard Bits = ...............: %s\n", inverse(mask))
+	}
+
 	if ip == nil {
 		fmt.Printf("Usable IP Addresses = .........: %s\n", commas(usable(mask)))
 	}
 
 	if ipnet != nil {
 		n := ipToUint(ipnet.IP)
-		broadcast := n + total(ipnet.Mask) - 1
-		first := n + 1
-		last := broadcast - 1
+		broadcast := new(big.Int).Add(n, total(ipnet.Mask))
+		broadcast.Sub(broadcast, b(1))
 
+		first := new(big.Int).Add(n, b(1))
+		last := new(big.Int).Sub(broadcast, b(1))
+
+		size := new(big.Int).Sub(broadcast, n)
 		var firstAddr, lastAddr string
-		if broadcast-n > 1 {
+		if size.Sign() == 1 {
 			firstAddr = uintToIP(first).String()
 			lastAddr = uintToIP(last).String()
 		} else {
@@ -258,8 +335,12 @@ func main() {
 		}
 
 		fmt.Println("------------------------------------------------")
-		fmt.Printf("Network Address = .............: %s\n", ipnet.IP.String())
-		fmt.Printf("Broadcast Address = ...........: %s\n", uintToIP(broadcast))
+
+		if !ipv6 {
+			fmt.Printf("Network Address = .............: %s\n", ipnet.IP.String())
+			fmt.Printf("Broadcast Address = ...........: %s\n", uintToIP(broadcast))
+		}
+
 		fmt.Printf("Usable IP Addresses = .........: %s\n", commas(usable(mask)))
 		fmt.Printf("First Usable IP Address = .....: %s\n", firstAddr)
 		fmt.Printf("Last Usable IP Address = ......: %s\n", lastAddr)
