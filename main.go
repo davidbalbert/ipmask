@@ -189,7 +189,6 @@ func chunk(s string, n int) []string {
 
 func commas(n *big.Int) string {
 	s := n.String()
-
 	chunked := chunk(reverse(s), 3)
 
 	return reverse(strings.Join(chunked, ","))
