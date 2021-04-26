@@ -212,11 +212,11 @@ func uintToIP(n *big.Int) net.IP {
 	var bytes []byte
 
 	// TODO: this is asymetric from ipToUint. Here, we check whether we're
-	// in IPv6 mode. There we check if the address is a v4 addres. Is this a
-	// problem?
+	// in IPv6 mode. There we check if the address is a v4 address. Is this
+	// a problem?
 	//
 	// We could do something like assume ipv4 in the case where n is between
-	// 1.0.0.0 and 254.255.255.255 (0.0.0.0/8 and 255.0.0.0/8 are invalid v6
+	// 1.0.0.0 and 254.255.255.255 (0.0.0.0/8 and 255.0.0.0/8 are invalid v4
 	// addresses and 0.0.0.1 overlaps with ::1). I'm not sure if this is a
 	// good idea.
 	if ipv6 {
@@ -226,6 +226,75 @@ func uintToIP(n *big.Int) net.IP {
 	}
 
 	return net.IP(n.FillBytes(bytes))
+}
+
+func print6(mask net.IPMask, ip net.IP, ipnet *net.IPNet) {
+	fmt.Println()
+	fmt.Println("-------------------------------------------------------------------------")
+	if ipnet != nil {
+		fmt.Println("                        TCP/IP NETWORK INFORMATION                       ")
+	} else {
+		fmt.Println("                      TCP/IP SUBNET MASK EQUIVALENTS                     ")
+
+	}
+	fmt.Println("-------------------------------------------------------------------------")
+
+	if ip != nil {
+		fmt.Printf("IP Entered = ..................: %s\n", ip.String())
+	}
+
+	fmt.Printf("Prefix = ......................: %s\n", prefix(mask))
+	fmt.Printf("Usable IP Addresses = .........: %s\n", commas(usable(mask)))
+
+	if ipnet != nil {
+		first := ipToUint(ipnet.IP)
+		last := new(big.Int).Add(first, total(ipnet.Mask))
+		last.Sub(last, b(1))
+
+		fmt.Printf("First Usable IP Address = .....: %s\n", uintToIP(first))
+		fmt.Printf("Last Usable IP Address = ......: %s\n", uintToIP(last))
+	}
+
+	fmt.Println()
+
+}
+
+func print4(mask net.IPMask, ip net.IP, ipnet *net.IPNet) {
+	fmt.Println()
+	fmt.Println("------------------------------------------------")
+	if ipnet != nil {
+		fmt.Println("           TCP/IP NETWORK INFORMATION           ")
+	} else {
+		fmt.Println("         TCP/IP SUBNET MASK EQUIVALENTS         ")
+
+	}
+	fmt.Println("------------------------------------------------")
+
+	if ip != nil {
+		fmt.Printf("IP Entered = ..................: %s\n", ip.String())
+	}
+
+	fmt.Printf("Prefix = ........................: %s\n", prefix(mask))
+
+	if ip == nil {
+		fmt.Printf("Usable IP Addresses = .........: %s\n", commas(usable(mask)))
+	}
+
+	if ipnet != nil {
+		n := ipToUint(ipnet.IP)
+		broadcast := new(big.Int).Add(n, total(ipnet.Mask))
+		broadcast.Sub(broadcast, b(1))
+
+		first := new(big.Int).Add(n, b(1))
+		last := new(big.Int).Sub(broadcast, b(1))
+
+		fmt.Println("------------------------------------------------")
+		fmt.Printf("Usable IP Addresses = .........: %s\n", commas(usable(mask)))
+		fmt.Printf("First Usable IP Address = .....: %s\n", uintToIP(first))
+		fmt.Printf("Last Usable IP Address = ......: %s\n", uintToIP(last))
+	}
+
+	fmt.Println()
 }
 
 func main() {
@@ -260,12 +329,22 @@ func main() {
 			log.Fatal(err)
 		}
 
-		if ip.To4() == nil {
+		isV4 := ip.To4() != nil
+
+		if isV4 && ipv6 {
+			log.Fatal("Can't force IPv6 for IPv4 address")
+		}
+
+		if !isV4 {
 			ipv6 = true
 		}
 
 		mask = ipnet.Mask
 	case strings.Contains(input, "."):
+		if ipv6 {
+			log.Fatalf("%s is an invalid mask for IPv6", input)
+		}
+
 		var err error
 		mask, err = parseMask(input)
 
@@ -273,6 +352,10 @@ func main() {
 			log.Fatal(err)
 		}
 	case strings.HasPrefix(input, "0x"):
+		if ipv6 {
+			log.Fatalf("%s is an invalid mask for IPv6", input)
+		}
+
 		var err error
 		mask, err = parseHex(input)
 
@@ -284,66 +367,13 @@ func main() {
 		mask, err = parsePrefixLength(fmt.Sprintf("/%s", input))
 
 		if err != nil {
-			log.Fatal(err)
+			log.Fatalf("%s is not a valid subnet mask or wildcard bit mask", input)
 		}
-	}
-
-	fmt.Println()
-	fmt.Println("------------------------------------------------")
-	if ipnet != nil {
-		fmt.Println("           TCP/IP NETWORK INFORMATION           ")
-	} else {
-		fmt.Println("         TCP/IP SUBNET MASK EQUIVALENTS         ")
-
-	}
-	fmt.Println("------------------------------------------------")
-
-	if ip != nil {
-		fmt.Printf("IP Entered = ..................: %s\n", ip.String())
 	}
 
 	if ipv6 {
-		fmt.Printf("Prefix = ......................: %s\n", prefix(mask))
+		print6(mask, ip, ipnet)
 	} else {
-		fmt.Printf("CIDR = ........................: %s\n", prefix(mask))
-		fmt.Printf("Netmask = .....................: %s\n", netmask(mask))
-		fmt.Printf("Netmask (hex) = ...............: 0x%s\n", mask.String())
-		fmt.Printf("Wildcard Bits = ...............: %s\n", inverse(mask))
+		print4(mask, ip, ipnet)
 	}
-
-	if ip == nil {
-		fmt.Printf("Usable IP Addresses = .........: %s\n", commas(usable(mask)))
-	}
-
-	if ipnet != nil {
-		n := ipToUint(ipnet.IP)
-		broadcast := new(big.Int).Add(n, total(ipnet.Mask))
-		broadcast.Sub(broadcast, b(1))
-
-		first := new(big.Int).Add(n, b(1))
-		last := new(big.Int).Sub(broadcast, b(1))
-
-		size := new(big.Int).Sub(broadcast, n)
-		var firstAddr, lastAddr string
-		if size.Sign() == 1 {
-			firstAddr = uintToIP(first).String()
-			lastAddr = uintToIP(last).String()
-		} else {
-			firstAddr = "<none>"
-			lastAddr = "<none>"
-		}
-
-		fmt.Println("------------------------------------------------")
-
-		if !ipv6 {
-			fmt.Printf("Network Address = .............: %s\n", ipnet.IP.String())
-			fmt.Printf("Broadcast Address = ...........: %s\n", uintToIP(broadcast))
-		}
-
-		fmt.Printf("Usable IP Addresses = .........: %s\n", commas(usable(mask)))
-		fmt.Printf("First Usable IP Address = .....: %s\n", firstAddr)
-		fmt.Printf("Last Usable IP Address = ......: %s\n", lastAddr)
-	}
-
-	fmt.Println()
 }
