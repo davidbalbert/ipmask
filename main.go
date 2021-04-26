@@ -322,7 +322,7 @@ func main() {
 	flag.Parse()
 
 	if flag.NArg() != 1 {
-		log.Fatalf("usage: %s [-6] netmask-or-subnet\n", os.Args[0])
+		log.Fatalf("usage: %s [-6] <netmask or ip/netmask>\n", os.Args[0])
 	}
 
 	input := flag.Arg(0)
