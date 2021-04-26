@@ -239,6 +239,8 @@ func print6(mask net.IPMask, ip net.IP, ipnet *net.IPNet) {
 	}
 	fmt.Println("-------------------------------------------------------------------------")
 
+	fmt.Printf("Address Family = ..............: IPv6\n")
+
 	if ip != nil {
 		fmt.Printf("IP Entered = ..................: %s\n", ip.String())
 	}
@@ -270,11 +272,16 @@ func print4(mask net.IPMask, ip net.IP, ipnet *net.IPNet) {
 	}
 	fmt.Println("------------------------------------------------")
 
+	fmt.Printf("Address Family = ..............: IPv4\n")
+
 	if ip != nil {
 		fmt.Printf("IP Entered = ..................: %s\n", ip.String())
 	}
 
-	fmt.Printf("Prefix = ........................: %s\n", prefix(mask))
+	fmt.Printf("CIDR = ........................: %s\n", prefix(mask))
+	fmt.Printf("Netmask = .....................: %s\n", netmask(mask))
+	fmt.Printf("Netmask (hex) = ...............: 0x%s\n", mask.String())
+	fmt.Printf("Wildcard Bits = ...............: %s\n", inverse(mask))
 
 	if ip == nil {
 		fmt.Printf("Usable IP Addresses = .........: %s\n", commas(usable(mask)))
@@ -288,10 +295,21 @@ func print4(mask net.IPMask, ip net.IP, ipnet *net.IPNet) {
 		first := new(big.Int).Add(n, b(1))
 		last := new(big.Int).Sub(broadcast, b(1))
 
+		var firstAddr, lastAddr string
+		if usable(mask).Cmp(b(0)) == 1 {
+			firstAddr = uintToIP(first).String()
+			lastAddr = uintToIP(last).String()
+		} else {
+			firstAddr = "<none>"
+			lastAddr = "<none>"
+		}
+
 		fmt.Println("------------------------------------------------")
+		fmt.Printf("Network Address = .............: %s\n", ipnet.IP.String())
+		fmt.Printf("Broadcast Address = ...........: %s\n", uintToIP(broadcast))
 		fmt.Printf("Usable IP Addresses = .........: %s\n", commas(usable(mask)))
-		fmt.Printf("First Usable IP Address = .....: %s\n", uintToIP(first))
-		fmt.Printf("Last Usable IP Address = ......: %s\n", uintToIP(last))
+		fmt.Printf("First Usable IP Address = .....: %s\n", firstAddr)
+		fmt.Printf("Last Usable IP Address = ......: %s\n", lastAddr)
 	}
 
 	fmt.Println()
