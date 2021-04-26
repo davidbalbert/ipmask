@@ -194,7 +194,7 @@ func commas(n *big.Int) string {
 	return reverse(strings.Join(chunked, ","))
 }
 
-func ipToUint(ip net.IP) *big.Int {
+func ipToBigInt(ip net.IP) *big.Int {
 	var bytes []byte
 
 	ip4 := ip.To4()
@@ -208,17 +208,9 @@ func ipToUint(ip net.IP) *big.Int {
 	return new(big.Int).SetBytes(bytes)
 }
 
-func uintToIP(n *big.Int) net.IP {
+func bigIntToIP(n *big.Int) net.IP {
 	var bytes []byte
 
-	// TODO: this is asymetric from ipToUint. Here, we check whether we're
-	// in IPv6 mode. There we check if the address is a v4 address. Is this
-	// a problem?
-	//
-	// We could do something like assume ipv4 in the case where n is between
-	// 1.0.0.0 and 254.255.255.255 (0.0.0.0/8 and 255.0.0.0/8 are invalid v4
-	// addresses and 0.0.0.1 overlaps with ::1). I'm not sure if this is a
-	// good idea.
 	if ipv6 {
 		bytes = make([]byte, 16)
 	} else {
@@ -249,12 +241,12 @@ func print6(mask net.IPMask, ip net.IP, ipnet *net.IPNet) {
 	fmt.Printf("Usable IP Addresses = .........: %s\n", commas(usable(mask)))
 
 	if ipnet != nil {
-		first := ipToUint(ipnet.IP)
+		first := ipToBigInt(ipnet.IP)
 		last := new(big.Int).Add(first, total(ipnet.Mask))
 		last.Sub(last, b(1))
 
-		fmt.Printf("First Usable IP Address = .....: %s\n", uintToIP(first))
-		fmt.Printf("Last Usable IP Address = ......: %s\n", uintToIP(last))
+		fmt.Printf("First Usable IP Address = .....: %s\n", bigIntToIP(first))
+		fmt.Printf("Last Usable IP Address = ......: %s\n", bigIntToIP(last))
 	}
 
 	fmt.Println()
@@ -288,7 +280,7 @@ func print4(mask net.IPMask, ip net.IP, ipnet *net.IPNet) {
 	}
 
 	if ipnet != nil {
-		n := ipToUint(ipnet.IP)
+		n := ipToBigInt(ipnet.IP)
 		broadcast := new(big.Int).Add(n, total(ipnet.Mask))
 		broadcast.Sub(broadcast, b(1))
 
@@ -297,8 +289,8 @@ func print4(mask net.IPMask, ip net.IP, ipnet *net.IPNet) {
 
 		var firstAddr, lastAddr string
 		if usable(mask).Cmp(b(0)) == 1 {
-			firstAddr = uintToIP(first).String()
-			lastAddr = uintToIP(last).String()
+			firstAddr = bigIntToIP(first).String()
+			lastAddr = bigIntToIP(last).String()
 		} else {
 			firstAddr = "<none>"
 			lastAddr = "<none>"
@@ -306,7 +298,7 @@ func print4(mask net.IPMask, ip net.IP, ipnet *net.IPNet) {
 
 		fmt.Println("------------------------------------------------")
 		fmt.Printf("Network Address = .............: %s\n", ipnet.IP.String())
-		fmt.Printf("Broadcast Address = ...........: %s\n", uintToIP(broadcast))
+		fmt.Printf("Broadcast Address = ...........: %s\n", bigIntToIP(broadcast))
 		fmt.Printf("Usable IP Addresses = .........: %s\n", commas(usable(mask)))
 		fmt.Printf("First Usable IP Address = .....: %s\n", firstAddr)
 		fmt.Printf("Last Usable IP Address = ......: %s\n", lastAddr)
